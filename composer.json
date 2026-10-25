@@ -1,0 +1,70 @@
+{
+    "name": "atannex/routing",
+    "description": "Attribute routing for Laravel: declare routes on the controllers themselves and they register automatically, with names, groups, prefixes, middleware, constraints, bindings, resources with policies, inline rate limits, webhooks, redirects, views, fallbacks, validation, deprecation headers and specificity-based ordering. Also replaces routes/console.php and routes/channels.php with #[Schedule] and #[Channel].",
+    "keywords": [
+        "laravel",
+        "routing",
+        "routes",
+        "attributes",
+        "controllers",
+        "annotations",
+        "discovery",
+        "scheduling"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Atanga Leke Collins",
+            "email": "atangageihlekecollins@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/cache": "^11.0|^12.0",
+        "illuminate/console": "^11.0|^12.0",
+        "illuminate/filesystem": "^11.0|^12.0",
+        "illuminate/http": "^11.0|^12.0",
+        "illuminate/routing": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0",
+        "illuminate/validation": "^11.0|^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "phpunit/phpunit": "^11.5"
+    },
+    "suggest": {
+        "illuminate/broadcasting": "For #[Channel] broadcast channel classes (^11.0|^12.0)."
+    },
+    "autoload": {
+        "psr-4": {
+            "Atannex\\Routing\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Atannex\\Routing\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Atannex\\Routing\\RoutingServiceProvider"
+            ],
+            "aliases": {
+                "Routing": "Atannex\\Routing\\Facades\\Routing"
+            }
+        },
+        "branch-alias": {
+            "dev-main": "1.x-dev"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
