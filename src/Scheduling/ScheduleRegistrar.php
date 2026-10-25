@@ -117,6 +117,7 @@ final class ScheduleRegistrar
     private function add(Schedule $schedule, string $class, Scheduled $attribute, ?string $method = null): Event
     {
         $event = match (true) {
+            $attribute->command !== null => $schedule->command($attribute->command, $attribute->parameters),
             $method !== null => $schedule->call($class.'@'.$method, $attribute->parameters)->name($class.'::'.$method),
             is_subclass_of($class, Command::class) => $schedule->command($class, $attribute->parameters),
             method_exists($class, '__invoke') => $schedule->call($class, $attribute->parameters)->name($class),
@@ -143,6 +144,10 @@ final class ScheduleRegistrar
         if ($attribute->environments !== []) {
             $event->environments($attribute->environments);
         }
+        if ($attribute->whenConfig !== null) {
+            $key = $attribute->whenConfig;
+            $event->when(fn () => filled(config($key)));
+        }
         if ($attribute->description !== null) {
             $event->description($attribute->description);
         }
@@ -150,10 +155,14 @@ final class ScheduleRegistrar
         return $event;
     }
 
-    /** "daily", "dailyAt:06:00", "twiceDaily:1,13" or a cron expression. */
+    /** "daily", "dailyAt:06:00", "twiceDaily:1,13" or a cron expression; {key} and {key=default} read config. */
     private function frequency(Event $event, string $frequency, string $class): void
     {
-        $frequency = trim($frequency);
+        $frequency = (string) preg_replace_callback(
+            '/\{([A-Za-z0-9_.\-]+)(?:=([^}]*))?\}/',
+            fn (array $match) => (string) config($match[1], $match[2] ?? null),
+            trim($frequency),
+        );
 
         if (str_contains($frequency, ' ')) {
             $event->cron($frequency);

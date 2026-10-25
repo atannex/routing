@@ -51,6 +51,12 @@ final class ToolkitController
         return 'tried';
     }
 
+    #[Post('toolkit/signup', name: 'toolkit.signup'), Throttle(3, 1, by: 'ip'), Throttle(2, 60, by: 'input:email'), Stateless]
+    public function signup(): string
+    {
+        return 'signed up';
+    }
+
     #[Post('toolkit/stripe', name: 'toolkit.stripe'), Webhook(secret: 'fixtures.hook_secret', format: 'stripe')]
     public function stripe(): string
     {

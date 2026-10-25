@@ -63,7 +63,7 @@ final class RouteDefinition
     /** Implicit binding fields per parameter, like {post:slug}. @var array<string, string> */
     public array $bindingFields = [];
 
-    /** Inline rate limit: ['limit' => int, 'minutes' => int, 'by' => string]. @var array<string, mixed>|null */
+    /** Inline rate limits, all applied: [['limit' => int, 'minutes' => int, 'by' => string], ...]. @var list<array<string, mixed>>|null */
     public ?array $throttle = null;
 
     /** Webhook signature check: ['secret' => config key, 'header' => ..., 'algorithm' => ..., 'prefix' => ...]. @var array<string, mixed>|null */

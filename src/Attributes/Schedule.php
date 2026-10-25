@@ -25,6 +25,17 @@ use Attribute;
  *         #[Schedule('hourly')] public function warmCaches() { … }
  *     }
  *
+ * `command` schedules another command by name, so commands from vendor
+ * packages can be scheduled too (from any class in the directories):
+ *
+ *     #[Schedule('dailyAt:03:15', command: 'queue:prune-failed', parameters: ['--hours' => 720])]
+ *
+ * Frequency arguments may read config, as {key} or {key=default}:
+ *
+ *     #[Schedule('dailyAt:{newsletters.morning_at=06:00}')]
+ *
+ * `whenConfig` runs the task only while that config value is filled.
+ *
  * Repeat it to run the class on several schedules. Classes are found in
  * the routing.schedule directories.
  */
@@ -47,5 +58,7 @@ final class Schedule
         public ?string $description = null,
         public ?string $queue = null,
         public ?string $connection = null,
+        public ?string $command = null,
+        public ?string $whenConfig = null,
     ) {}
 }

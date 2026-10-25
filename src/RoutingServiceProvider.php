@@ -104,33 +104,46 @@ class RoutingServiceProvider extends ServiceProvider
     {
         RateLimiter::for(self::RATE_LIMITER, function (Request $request) {
             $route = $request->route();
-            $spec = (array) ($route?->getAction('routing')['throttle'] ?? []);
+            $specs = (array) ($route?->getAction('routing')['throttle'] ?? []);
 
-            if ($spec === []) {
+            // One spec, as cached by 1.0.
+            if (isset($specs['limit'])) {
+                $specs = [$specs];
+            }
+
+            if ($specs === []) {
                 return Limit::none();
             }
 
-            $by = (string) $spec['by'];
-            [$source, $field] = array_pad(explode(':', $by, 2), 2, null);
+            $limits = [];
 
-            $key = match ($source) {
-                'ip' => $request->ip(),
-                'user' => $request->user()?->getAuthIdentifier() ?? $request->ip(),
-                'session' => $request->hasSession() ? $request->session()->getId() : $request->ip(),
-                'header' => $request->header((string) $field),
-                'input' => $request->input((string) $field),
-                'route' => $route?->originalParameter((string) $field),
-                default => throw new Exceptions\RoutingException("Unknown throttle key \"{$by}\". Use ip, user, session, header:Name, input:field or route:parameter."),
-            };
+            foreach (array_values($specs) as $index => $spec) {
+                $by = (string) $spec['by'];
+                [$source, $field] = array_pad(explode(':', $by, 2), 2, null);
 
-            // Without the header, field or parameter, count by IP, so leaving
-            // the field out does not put every such request in one bucket.
-            if ($key === null || $key === '' || $key === []) {
-                [$source, $key] = ['ip', $request->ip()];
+                $key = match ($source) {
+                    'ip' => $request->ip(),
+                    'user' => $request->user()?->getAuthIdentifier() ?? $request->ip(),
+                    'session' => $request->hasSession() ? $request->session()->getId() : $request->ip(),
+                    'header' => $request->header((string) $field),
+                    // Case and spacing don't make a new counter: "A@x.com " is "a@x.com".
+                    'input' => is_string($value = $request->input((string) $field)) ? mb_strtolower(trim($value)) : $value,
+                    'route' => $route?->originalParameter((string) $field),
+                    default => throw new Exceptions\RoutingException("Unknown throttle key \"{$by}\". Use ip, user, session, header:Name, input:field or route:parameter."),
+                };
+
+                // Without the header, field or parameter, count by IP, so leaving
+                // the field out does not put every such request in one bucket.
+                if ($key === null || $key === '' || $key === []) {
+                    [$source, $key] = ['ip', $request->ip()];
+                }
+
+                // Each limit of a route keeps its own counter.
+                $limits[] = Limit::perMinutes((int) $spec['minutes'], (int) $spec['limit'])
+                    ->by(($route?->getName() ?? $route?->uri()).($index > 0 ? '#'.$index : '').'|'.$source.'|'.(is_scalar($key) ? (string) $key : sha1((string) json_encode($key))));
             }
 
-            return Limit::perMinutes((int) $spec['minutes'], (int) $spec['limit'])
-                ->by(($route?->getName() ?? $route?->uri()).'|'.$source.'|'.(is_scalar($key) ? (string) $key : sha1((string) json_encode($key))));
+            return count($limits) === 1 ? $limits[0] : $limits;
         });
     }
 

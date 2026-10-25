@@ -271,6 +271,15 @@ For versions, map `Api/V1` and `Api/V2` to `api/v1` and `api/v2`, and mark the o
 #[Throttle(10, 1, by: 'route:team')]       // per {team}
 ```
 
+`input:` values count case-insensitively and trimmed, so `Reader@Example.com` shares the counter of `reader@example.com`.
+
+Repeat it to apply several limits; a request must pass them all, and each keeps its own counter:
+
+```php
+#[Throttle(5, 1, by: 'ip')]
+#[Throttle(3, 60, by: 'input:email')]      // and 3 an hour per address (newsletter sign-up)
+```
+
 `by` is `ip`, `user`, `session`, `header:Name`, `input:field` or `route:parameter`. Any other value fails when routes are discovered, not on the first request. Each route keeps its own counter, and a request without the header, field or parameter is counted by IP, so leaving the field out does not escape the limit or share one bucket with everyone. One built-in limiter reads the limit from the route action, so it works with `route:cache`.
 
 ## Webhooks
@@ -453,11 +462,18 @@ final class Housekeeping                     // what used to be closures in rout
     #[Schedule('daily')]  public function pruneDrafts(Drafts $drafts) { /* … */ }
     #[Schedule('hourly')] public function warmCaches() { /* … */ }
 }
+
+// Commands from other packages, by name, from any class in the directories:
+#[Schedule('dailyAt:04:20', command: 'queue:prune-failed', parameters: ['--hours' => 720], onOneServer: true)]
+#[Schedule('dailyAt:{newsletters.morning_at=06:00}', command: 'newsletters:send', parameters: ['morning'])]
+#[Schedule('everyMinute', command: 'live:refresh', whenConfig: 'services.youtube.channel_id')]
+final class Maintenance {}
 ```
 
 - **Frequency**: a scheduler method with arguments after a colon (`daily`, `hourlyAt:15`, `twiceDaily:1,13`, `weeklyOn:1,8:00`) or a cron expression. An unknown name throws when the schedule is built.
-- **What runs**: a command as a command (`parameters` are its arguments and options); a method or `__invoke` class through the container; anything else dispatched as a job, on `queue`/`connection`.
-- **Options**: `timezone`, `withoutOverlapping` (`true` or minutes), `onOneServer`, `runInBackground`, `evenInMaintenanceMode`, `environments`, `description`. Repeat the attribute for several schedules.
+- **Config in the frequency**: `{key}` or `{key=default}` in the arguments reads config when the schedule is built, e.g. `weeklyOn:{mail.weekly_day=0},{mail.weekly_at=07:00}`.
+- **What runs**: `command: 'name'` runs that command; otherwise a command as a command (`parameters` are its arguments and options); a method or `__invoke` class through the container; anything else dispatched as a job, on `queue`/`connection`.
+- **Options**: `whenConfig` (run only while that config value is filled), `timezone`, `withoutOverlapping` (`true` or minutes), `onOneServer`, `runInBackground`, `evenInMaintenanceMode`, `environments`, `description`. Repeat the attribute for several schedules.
 
 Classes are found in `schedule.directories` (`app/Console/Commands`, `app/Jobs`). `ROUTING_SCHEDULE=false` turns it off. Don't also schedule the same class in `routes/console.php`, or it runs twice. Alias one import if the file also uses the `Schedule` facade.
 

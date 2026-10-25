@@ -19,8 +19,13 @@ use Attribute;
  * `by` keys the limit: ip, user, session, header:Name, input:field or
  * route:parameter. Each route keeps its own counter. A request without the
  * header, field or parameter is counted by IP instead.
+ *
+ * Repeat it to apply several limits at once; a request must pass them all:
+ *
+ *     #[Throttle(5, 1, by: 'ip')]
+ *     #[Throttle(3, 60, by: 'input:email')]     // and 3 an hour per address
  */
-#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 final class Throttle implements RouteModifier
 {
     public function __construct(
@@ -45,7 +50,7 @@ final class Throttle implements RouteModifier
     public function modify(RouteDefinition $route): void
     {
         if ($this->by !== null && is_int($this->limit)) {
-            $route->throttle = ['limit' => $this->limit, 'minutes' => $this->minutes ?? 1, 'by' => $this->by];
+            $route->throttle[] = ['limit' => $this->limit, 'minutes' => $this->minutes ?? 1, 'by' => $this->by];
 
             return;
         }

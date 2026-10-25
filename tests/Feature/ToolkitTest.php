@@ -90,6 +90,18 @@ final class ToolkitTest extends TestCase
         $this->post('/toolkit/login', ['email' => 'b@example.com'])->assertOk();
     }
 
+    public function test_repeated_throttles_all_apply(): void
+    {
+        // 2 an hour per address...
+        $this->post('/toolkit/signup', ['email' => 'a@example.com'])->assertOk();
+        $this->post('/toolkit/signup', ['email' => ' A@Example.com'])->assertOk();
+        $this->post('/toolkit/signup', ['email' => 'a@example.com'])->assertStatus(429);
+
+        // ...and 3 a minute per IP, whatever the address.
+        $this->post('/toolkit/signup', ['email' => 'b@example.com'])->assertStatus(429);
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.3'])->post('/toolkit/signup', ['email' => 'b@example.com'])->assertOk();
+    }
+
     public function test_resources_authorize_each_action_and_scope_bindings(): void
     {
         $this->assertContains('can:viewAny,App\Models\Article', $this->route('magazines.articles.index')->gatherMiddleware());

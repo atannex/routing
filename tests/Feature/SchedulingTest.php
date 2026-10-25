@@ -19,6 +19,8 @@ final class SchedulingTest extends TestCase
     {
         parent::defineEnvironment($app);
 
+        $app['config']->set('fixtures.digest_day', 5);
+
         if (! isset($this->routing['schedule'])) {
             $app['config']->set('routing.schedule.directories', [__DIR__.'/../Fixtures/Scheduled']);
         }
@@ -69,8 +71,8 @@ final class SchedulingTest extends TestCase
 
     public function test_classes_without_the_attribute_are_left_alone(): void
     {
-        $this->assertCount(5, $this->app->make(Schedule::class)->events());
-        $this->assertCount(3, $this->app->make(ScheduleRegistrar::class)->classes());
+        $this->assertCount(8, $this->app->make(Schedule::class)->events());
+        $this->assertCount(4, $this->app->make(ScheduleRegistrar::class)->classes());
     }
 
     public function test_methods_can_be_scheduled(): void
@@ -83,6 +85,40 @@ final class SchedulingTest extends TestCase
         Housekeeping::$ran = [];
         $events[$key]->run($this->app);
         $this->assertSame(['prune'], Housekeeping::$ran);
+    }
+
+    public function test_other_commands_are_scheduled_by_name(): void
+    {
+        $events = collect($this->app->make(Schedule::class)->events());
+
+        $recount = $events->first(fn (Event $event) => str_contains((string) $event->command, 'vendor:recount'));
+        $this->assertSame('15 3 * * *', $recount->expression);
+        $this->assertStringContainsString('vendor:recount --force', $recount->command);
+        $this->assertTrue($recount->withoutOverlapping);
+    }
+
+    public function test_frequency_arguments_read_config(): void
+    {
+        $digest = fn () => collect($this->app->make(Schedule::class)->events())
+            ->first(fn (Event $event) => str_contains((string) $event->command, 'vendor:digest'));
+
+        // {fixtures.digest_at=06:30} falls back to its default.
+        $this->assertSame('30 6 * * 5', $digest()->expression);
+
+        $this->app['config']->set('fixtures.digest_at', '07:45');
+        $this->app->forgetInstance(Schedule::class);
+        $this->assertSame('45 7 * * 5', $digest()->expression);
+    }
+
+    public function test_when_config_skips_the_task_until_the_value_is_filled(): void
+    {
+        $poll = collect($this->app->make(Schedule::class)->events())
+            ->first(fn (Event $event) => str_contains((string) $event->command, 'vendor:poll'));
+
+        $this->assertFalse($poll->filtersPass($this->app));
+
+        $this->app['config']->set('fixtures.poll_channel', 'UC123');
+        $this->assertTrue($poll->filtersPass($this->app));
     }
 
     public function test_commands_in_extra_directories_are_registered(): void
@@ -128,7 +164,7 @@ final class SchedulingTest extends TestCase
         $this->routing = ['schedule' => ['enabled' => true, 'directories' => []]];
         $this->refreshApplication();
 
-        $this->assertCount(5, $this->app->make(Schedule::class)->events());
+        $this->assertCount(8, $this->app->make(Schedule::class)->events());
         $this->artisan('schedule:list')->expectsOutputToContain('fixture:report --fresh')->assertSuccessful();
     }
 }
