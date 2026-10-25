@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atannex\Routing\Tests\Feature;
 
 use Atannex\Routing\Facades\Routing;
+use Atannex\Routing\Tests\Fixtures\PackageRoutesProvider;
 use Atannex\Routing\Tests\TestCase;
 
 final class OrderingAndConstraintsTest extends TestCase
@@ -22,14 +23,20 @@ final class OrderingAndConstraintsTest extends TestCase
         $this->get('/business/farming')->assertSee('content:business/farming');
     }
 
+    protected function getPackageProviders($app): array
+    {
+        // Booted after this package, like any package listed later.
+        return [...parent::getPackageProviders($app), PackageRoutesProvider::class];
+    }
+
     public function test_by_default_attribute_routes_come_after_package_routes(): void
     {
-        // Laravel's own storage/{path} route is registered by a framework provider;
-        // the app's catch-all must not swallow it.
+        // The app's catch-all must not swallow a package's routes.
         $order = $this->order();
 
-        $this->assertContains('storage/{path}', $order);
-        $this->assertLessThan(array_search('{path}', $order), array_search('storage/{path}', $order));
+        $this->assertContains('vendor-package/{path}', $order);
+        $this->assertLessThan(array_search('{path}', $order), array_search('vendor-package/{path}', $order));
+        $this->get('/vendor-package/a/b')->assertSee('package:a/b');
     }
 
     public function test_boot_mode_registers_ahead_of_later_routes(): void
@@ -38,7 +45,7 @@ final class OrderingAndConstraintsTest extends TestCase
         $this->refreshApplication();
 
         $order = $this->order();
-        $this->assertGreaterThan(array_search('{path}', $order), array_search('storage/{path}', $order));
+        $this->assertGreaterThan(array_search('{path}', $order), array_search('vendor-package/{path}', $order));
     }
 
     public function test_priority_beats_specificity(): void
