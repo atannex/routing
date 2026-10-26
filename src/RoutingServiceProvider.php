@@ -14,13 +14,15 @@ use Atannex\Routing\Console\ListCommand;
 use Atannex\Routing\Http\Middleware\ValidateRouteRequest;
 use Atannex\Routing\Scheduling\ScheduleRegistrar;
 use Illuminate\Broadcasting\BroadcastManager;
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Application as Artisan;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Routing\RouteBinding;
+use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 
 class RoutingServiceProvider extends ServiceProvider
@@ -69,7 +71,9 @@ class RoutingServiceProvider extends ServiceProvider
         }
 
         if ($this->app->runningInConsole() && ($directories = $this->app->make(Routing::class)->commandDirectories()) !== []) {
-            Artisan::starting(fn (Artisan $artisan) => $artisan->resolveCommands((new CommandFinder)->find($directories)));
+            Artisan::starting(fn (Artisan $artisan) => $artisan->resolveCommands(
+                $this->app->make(Routing::class)->cached('commands') ?? (new CommandFinder)->find($directories),
+            ));
         }
 
         if (class_exists(BroadcastManager::class) && $this->app['config']->get('routing.channels.enabled', true)) {
@@ -98,11 +102,13 @@ class RoutingServiceProvider extends ServiceProvider
     /**
      * One limiter serves every #[Throttle(..., by: ...)] route: it reads the
      * limit from the route, so nothing is defined per route and it works
-     * with the route cache.
+     * with the route cache. It is defined only once the rate limiter is
+     * resolved, so requests that throttle nothing never build it (or its
+     * cache store).
      */
     private function bootRateLimiter(): void
     {
-        RateLimiter::for(self::RATE_LIMITER, function (Request $request) {
+        $this->callAfterResolving(RateLimiter::class, fn (RateLimiter $limiter) => $limiter->for(self::RATE_LIMITER, function (Request $request) {
             $route = $request->route();
             $specs = (array) ($route?->getAction('routing')['throttle'] ?? []);
 
@@ -144,30 +150,54 @@ class RoutingServiceProvider extends ServiceProvider
             }
 
             return count($limits) === 1 ? $limits[0] : $limits;
-        });
+        }));
     }
 
     /**
      * Global bindings from config: a model class (Route::model), or a
      * [class, method] / "Class@method" resolver receiving the value and the route (Route::bind).
+     *
+     * Only a closure per parameter is registered at boot; what the binder is
+     * (a model, a static or instance method) is worked out on its first use,
+     * so requests without the parameter autoload and reflect nothing.
      */
     private function bootBindings(): void
     {
-        foreach ((array) $this->app['config']->get('routing.bindings', []) as $parameter => $binder) {
-            $router = $this->app->make('router');
+        $bindings = (array) $this->app['config']->get('routing.bindings', []);
 
-            if (is_string($binder) && class_exists($binder) && ! method_exists($binder, '__invoke')) {
-                $router->model($parameter, $binder);
-
-                continue;
-            }
-
-            // [Class::class, 'method'] is resolved from the container, not called statically.
-            if (is_array($binder) && is_string($binder[0] ?? null) && ! (new \ReflectionMethod($binder[0], $binder[1]))->isStatic()) {
-                $binder = $binder[0].'@'.$binder[1];
-            }
-
-            $router->bind($parameter, fn ($value, $route) => $this->app->call($binder, ['value' => $value, 'route' => $route]));
+        if ($bindings === []) {
+            return;
         }
+
+        $router = $this->app->make('router');
+
+        foreach ($bindings as $parameter => $binder) {
+            $this->bindLazily($router, (string) $parameter, $binder);
+        }
+    }
+
+    private function bindLazily(Router $router, string $parameter, mixed $binder): void
+    {
+        $resolve = null;
+
+        $router->bind($parameter, function ($value, $route) use ($binder, &$resolve) {
+            $resolve ??= $this->binder($binder);
+
+            return $resolve($value, $route);
+        });
+    }
+
+    private function binder(mixed $binder): \Closure
+    {
+        if (is_string($binder) && class_exists($binder) && ! method_exists($binder, '__invoke')) {
+            return RouteBinding::forModel($this->app, $binder);
+        }
+
+        // [Class::class, 'method'] is resolved from the container, not called statically.
+        if (is_array($binder) && is_string($binder[0] ?? null) && ! (new \ReflectionMethod($binder[0], $binder[1]))->isStatic()) {
+            $binder = $binder[0].'@'.$binder[1];
+        }
+
+        return fn ($value, $route) => $this->app->call($binder, ['value' => $value, 'route' => $route]);
     }
 }

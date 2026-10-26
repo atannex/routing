@@ -318,12 +318,28 @@ final class RouteDefinition
      | Serialization (discovery cache)
      * ------------------------------------------------------------------ */
 
+    /** Property defaults of a fresh definition, left out of the cache. @var array<string, mixed>|null */
+    private static ?array $blank = null;
+
     /**
+     * The properties that differ from a fresh definition, plus the
+     * constructor arguments: a much smaller cache file to load.
+     *
      * @return array<string, mixed>
      */
     public function toArray(): array
     {
-        return get_object_vars($this);
+        self::$blank ??= get_object_vars(new self([], '', ''));
+
+        $data = ['methods' => $this->methods, 'path' => $this->path, 'controller' => $this->controller];
+
+        foreach (get_object_vars($this) as $key => $value) {
+            if (! array_key_exists($key, $data) && $value !== self::$blank[$key]) {
+                $data[$key] = $value;
+            }
+        }
+
+        return $data;
     }
 
     /**
@@ -331,7 +347,7 @@ final class RouteDefinition
      */
     public static function fromArray(array $data): self
     {
-        $definition = new self($data['methods'], $data['path'], $data['controller'], $data['action'], $data['kind']);
+        $definition = new self($data['methods'], $data['path'], $data['controller'], $data['action'] ?? '__invoke', $data['kind'] ?? self::KIND_ROUTE);
 
         foreach ($data as $key => $value) {
             if (property_exists($definition, $key)) {

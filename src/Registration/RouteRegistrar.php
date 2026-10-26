@@ -62,7 +62,7 @@ final class RouteRegistrar
         }
 
         if (($this->config['ordering'] ?? 'specificity') === 'specificity') {
-            usort($prepared, [Specificity::class, 'compare']);
+            $prepared = Specificity::sort($prepared);
         } else {
             // "declaration": discovery order, with priorities and fallbacks still honoured.
             usort($prepared, fn (RouteDefinition $a, RouteDefinition $b) => ($a->kind === RouteDefinition::KIND_FALLBACK) <=> ($b->kind === RouteDefinition::KIND_FALLBACK)
@@ -155,7 +155,9 @@ final class RouteRegistrar
             $route->missing($this->missingHandler($definition->missing));
         }
 
-        $route->setAction(array_merge($route->getAction(), ['routing' => array_filter([
+        // Written straight onto the action: setAction(array_merge(...)) would
+        // copy the whole action array of every route.
+        $route->action['routing'] = array_filter([
             'source' => $definition->source,
             'handler' => $definition->handler(),
             'priority' => $definition->priority ?: null,
@@ -166,7 +168,7 @@ final class RouteRegistrar
             'throttle' => $definition->throttle,
             'webhook' => $definition->webhook,
             'meta' => $definition->meta ?: null,
-        ], fn ($value) => $value !== null)]));
+        ], fn ($value) => $value !== null);
 
         return $route;
     }

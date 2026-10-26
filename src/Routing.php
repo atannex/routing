@@ -6,6 +6,7 @@ namespace Atannex\Routing;
 
 use Atannex\Routing\Attributes\Group;
 use Atannex\Routing\Broadcasting\ChannelRegistrar;
+use Atannex\Routing\Console\CommandFinder;
 use Atannex\Routing\Contracts\RouteModifier;
 use Atannex\Routing\Definition\RouteDefinition;
 use Atannex\Routing\Discovery\ClassFinder;
@@ -247,7 +248,7 @@ class Routing
     }
 
     /**
-     * One section of the discovery cache (routes, schedule, channels), or
+     * One section of the discovery cache (routes, schedule, channels, commands), or
      * null when there is no cache or it predates that section.
      *
      * @return array<int|string, mixed>|null
@@ -274,6 +275,7 @@ class Routing
             'routes' => $routes,
             'schedule' => (new ScheduleRegistrar($this->scheduleDirectories()))->export(),
             'channels' => (new ChannelRegistrar($this->channelDirectories()))->export(),
+            'commands' => (new CommandFinder)->find($this->commandDirectories()),
         ];
 
         // replace() writes a temporary file and renames it, so a request never

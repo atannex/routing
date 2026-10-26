@@ -115,6 +115,61 @@ final class Specificity
     }
 
     /**
+     * Sorts routes so the most specific comes first: the same order as
+     * compare(), but each route's key is worked out once and the sort runs
+     * in C (array_multisort) instead of calling back into PHP per comparison.
+     *
+     * @param  list<RouteDefinition>  $routes
+     * @return list<RouteDefinition>
+     */
+    public static function sort(array $routes): array
+    {
+        $fallback = $priority = $domain = $ranks = $sequence = $position = [];
+
+        foreach ($routes as $route) {
+            $isFallback = $route->kind === RouteDefinition::KIND_FALLBACK;
+            $fallback[] = (int) $isFallback;
+            // Fallbacks are ordered among themselves by sequence alone.
+            $priority[] = $isFallback ? 0 : $route->priority;
+            $domain[] = (int) ($isFallback || $route->domain === null);
+            $ranks[] = $isFallback ? '' : self::key(self::ranks($route));
+            $sequence[] = $route->sequence;
+            // Redirects share their target's sequence; keep ties in input order, as a stable usort would.
+            $position[] = count($position);
+        }
+
+        array_multisort(
+            $fallback, SORT_ASC, SORT_NUMERIC,
+            $priority, SORT_DESC, SORT_NUMERIC,
+            $domain, SORT_ASC, SORT_NUMERIC,
+            $ranks, SORT_ASC, SORT_STRING,
+            $sequence, SORT_ASC, SORT_NUMERIC,
+            $position, SORT_ASC, SORT_NUMERIC,
+            $routes,
+        );
+
+        return $routes;
+    }
+
+    /**
+     * Ranks as a string that sorts like compare() does: a higher rank gives
+     * a lower character, and the closing "~" sorts after every rank, so when
+     * one path is a prefix of the other the longer one comes first.
+     *
+     * @param  list<int>  $ranks
+     */
+    private static function key(array $ranks): string
+    {
+        $key = '';
+
+        foreach ($ranks as $rank) {
+            $key .= chr(ord('a') + self::STATIC - $rank);
+        }
+
+        return $key.'~';
+    }
+
+    /**
      * Sort comparator: negative when $a must be registered before $b.
      */
     public static function compare(RouteDefinition $a, RouteDefinition $b): int
