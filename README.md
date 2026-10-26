@@ -5,7 +5,6 @@
 <p><strong>Attribute-based routing for Laravel applications.</strong></p>
 
 <p>
-  <a href="https://github.com/atannex/routing/actions/workflows/tests.yml"><img src="https://github.com/atannex/routing/actions/workflows/tests.yml/badge.svg?branch=main" alt="Test workflow status"></a>
   <a href="https://github.com/atannex/routing/blob/main/composer.json"><img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php&amp;logoColor=white" alt="PHP 8.2 or later"></a>
   <a href="https://github.com/atannex/routing/blob/main/composer.json"><img src="https://img.shields.io/badge/Laravel-11%20%7C%2012-FF2D20?logo=laravel&amp;logoColor=white" alt="Laravel 11 and 12"></a>
   <a href="https://github.com/atannex/routing/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-2EA44F" alt="MIT license"></a>
