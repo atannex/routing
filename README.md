@@ -7,11 +7,3 @@ Lets you declare Laravel routes on the controllers themselves using PHP attribut
 ```bash
 composer require atannex/routing
 ```
-
-## Documentation
-
-The full guide is in [docs/overview.md](docs/overview.md).
-
-## License
-
-MIT.
