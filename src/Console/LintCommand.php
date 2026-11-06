@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atannex\Routing\Console;
 
+use Atannex\Routing\Attributes\Stateless;
+use Atannex\Routing\Attributes\WithoutCsrf;
 use Atannex\Routing\Definition\RouteDefinition;
 use Atannex\Routing\Routing;
 use Atannex\Routing\Support\SampleUri;
@@ -97,9 +99,16 @@ final class LintCommand extends Command
     {
         $aliases = $router->getMiddleware() + $router->getMiddlewareGroups();
 
+        // Exclusions this package adds for every Laravel version (e.g. 13's PreventRequestForgery).
+        $versioned = [...Stateless::MIDDLEWARE, ...WithoutCsrf::MIDDLEWARE];
+
         foreach ($definitions as $definition) {
             foreach ([...$definition->middleware, ...$definition->withoutMiddleware] as $middleware) {
                 $name = explode(':', $middleware, 2)[0];
+
+                if (in_array($name, $versioned, true) && in_array($middleware, $definition->withoutMiddleware, true)) {
+                    continue;
+                }
 
                 if (! isset($aliases[$name]) && ! class_exists($name)) {
                     $this->problem('error', "Unknown middleware \"{$name}\" on {$definition->handler()} ({$definition->source}).");

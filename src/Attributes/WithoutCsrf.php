@@ -16,8 +16,14 @@ use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 #[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
 final class WithoutCsrf implements RouteModifier
 {
+    /** Laravel 13 checks CSRF with PreventRequestForgery; earlier versions with ValidateCsrfToken. */
+    public const MIDDLEWARE = [
+        ValidateCsrfToken::class,
+        'Illuminate\\Foundation\\Http\\Middleware\\PreventRequestForgery',
+    ];
+
     public function modify(RouteDefinition $route): void
     {
-        $route->withoutMiddleware(ValidateCsrfToken::class);
+        $route->withoutMiddleware(self::MIDDLEWARE);
     }
 }

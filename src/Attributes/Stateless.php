@@ -29,6 +29,8 @@ final class Stateless implements RouteModifier
         AuthenticateSession::class,
         ShareErrorsFromSession::class,
         ValidateCsrfToken::class,
+        // Laravel 13's CSRF middleware (a string, so 11 and 12 need not have the class).
+        'Illuminate\\Foundation\\Http\\Middleware\\PreventRequestForgery',
     ];
 
     public function modify(RouteDefinition $route): void
