@@ -8,7 +8,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | "booted": once the application has booted, after routes/web.php and the
-    |           routes of every other package (Fortify, Filament...). That is
+    |           routes of every other package (Fortify, Horizon...). That is
     |           where routes/web.php itself sits, so an app catch-all such as
     |           /{path} cannot swallow package routes. The default.
     | "boot":   while this package boots, ahead of routes/web.php and of the

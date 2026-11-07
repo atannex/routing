@@ -6,7 +6,7 @@ namespace Atannex\Routing\Tests\Fixtures;
 
 use Illuminate\Support\ServiceProvider;
 
-/** Stands in for another package (Fortify, Filament...) that registers routes while it boots. */
+/** Stands in for another package (Fortify, Horizon...) that registers routes while it boots. */
 final class PackageRoutesProvider extends ServiceProvider
 {
     public function boot(): void
